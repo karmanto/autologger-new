@@ -1,0 +1,31 @@
+# SEO here: Robots.txt file for search engine crawling instructions
+User-agent: *
+Allow: /
+
+# SEO here: Block access to admin or sensitive areas (if any)
+Disallow: /admin/
+Disallow: /private/
+Disallow: /*.json$
+Disallow: /src/
+
+# SEO here: Allow access to important assets
+Allow: /spt_logo.png
+Allow: /hero*.webp
+Allow: /promo*.jpeg
+Allow: /testimoni*.jpeg
+
+# SEO here: Sitemap location for search engines
+Sitemap: https://simbolonphukettour.com/sitemap.xml
+
+# SEO here: Crawl delay to be respectful to server resources
+Crawl-delay: 1
+
+# SEO here: Specific instructions for major search engines
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Slurp
+Allow: /

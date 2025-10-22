@@ -1,0 +1,141 @@
+{
+  "galleries": [
+    {
+      "id": 1,
+      "nameId": "Kota Pattaya",
+      "nameEn": "Pattaya City",
+      "nameRu": "Город Паттайя",
+      "images": [
+        { "id": 1, "url": "/gallery1/2.webp" },
+        { "id": 2, "url": "/gallery1/3.webp" },
+        { "id": 3, "url": "/gallery1/4.webp" },
+        { "id": 4, "url": "/gallery1/5.webp" },
+        { "id": 5, "url": "/gallery1/6.webp" },
+        { "id": 6, "url": "/gallery1/7.webp" },
+        { "id": 7, "url": "/gallery1/8.webp" },
+        { "id": 8, "url": "/gallery1/9.webp" }
+      ]
+    },
+    {
+      "id": 2,
+      "nameId": "Kota Bangkok",
+      "nameEn": "Bangkok City",
+      "nameRu": "Город Бангкок",
+      "images": [
+        { "id": 1, "url": "/gallery2/11.webp" },
+        { "id": 2, "url": "/gallery2/12.webp" },
+        { "id": 3, "url": "/gallery2/13.webp" },
+        { "id": 4, "url": "/gallery2/14.webp" },
+        { "id": 5, "url": "/gallery2/15.webp" },
+        { "id": 6, "url": "/gallery2/16.webp" },
+        { "id": 7, "url": "/gallery2/17.webp" },
+        { "id": 8, "url": "/gallery2/18.webp" },
+        { "id": 9, "url": "/gallery2/19.webp" },
+        { "id": 10, "url": "/gallery2/20.webp" },
+        { "id": 11, "url": "/gallery2/21.webp" },
+        { "id": 12, "url": "/gallery2/22.webp" },
+        { "id": 13, "url": "/gallery2/23.webp" },
+        { "id": 14, "url": "/gallery2/24.webp" },
+        { "id": 15, "url": "/gallery2/25.webp" },
+        { "id": 16, "url": "/gallery2/26.webp" },
+        { "id": 17, "url": "/gallery2/27.webp" },
+        { "id": 18, "url": "/gallery2/28.webp" },
+        { "id": 19, "url": "/gallery2/29.webp" },
+        { "id": 20, "url": "/gallery2/30.webp" }
+      ]
+    },
+    {
+      "id": 3,
+      "nameId": "Kota Phuket",
+      "nameEn": "Phuket City",
+      "nameRu": "Город Пхукет",
+      "images": [
+        { "id": 1, "url": "/gallery3/1.webp" },
+        { "id": 2, "url": "/gallery3/2.webp" },
+        { "id": 3, "url": "/gallery3/3.webp" },
+        { "id": 4, "url": "/gallery3/4.webp" },
+        { "id": 5, "url": "/gallery3/5.webp" },
+        { "id": 6, "url": "/gallery3/6.webp" },
+        { "id": 7, "url": "/gallery3/7.webp" },
+        { "id": 8, "url": "/gallery3/8.webp" }
+      ]
+    },
+    {
+      "id": 4,
+      "nameId": "Pulau Phi Phi",
+      "nameEn": "Phi Phi Island",
+      "nameRu": "Острова Пхи-Пхи",
+      "images": [
+        { "id": 1,  "url": "/gallery4/42.webp" },
+        { "id": 2,  "url": "/gallery4/43.webp" },
+        { "id": 3,  "url": "/gallery4/44.webp" },
+        { "id": 4,  "url": "/gallery4/45.webp" },
+        { "id": 5,  "url": "/gallery4/46.webp" },
+        { "id": 6,  "url": "/gallery4/47.webp" },
+        { "id": 7,  "url": "/gallery4/48.webp" },
+        { "id": 8,  "url": "/gallery4/49.webp" },
+        { "id": 9,  "url": "/gallery4/50.webp" },
+        { "id": 10, "url": "/gallery4/51.webp" },
+        { "id": 11, "url": "/gallery4/52.webp" },
+        { "id": 12, "url": "/gallery4/53.webp" },
+        { "id": 13, "url": "/gallery4/54.webp" },
+        { "id": 14, "url": "/gallery4/55.webp" },
+        { "id": 15, "url": "/gallery4/56.webp" },
+        { "id": 16, "url": "/gallery4/57.webp" },
+        { "id": 17, "url": "/gallery4/58.webp" },
+        { "id": 18, "url": "/gallery4/59.webp" },
+        { "id": 19, "url": "/gallery4/60.webp" },
+        { "id": 20, "url": "/gallery4/61.webp" },
+        { "id": 21, "url": "/gallery4/62.webp" },
+        { "id": 22, "url": "/gallery4/63.webp" },
+        { "id": 23, "url": "/gallery4/64.webp" },
+        { "id": 24, "url": "/gallery4/65.webp" }
+      ]
+    },
+    {
+      "id": 5,
+      "nameId": "Pulau James Bond",
+      "nameEn": "James Bond Island",
+      "nameRu": "Остров Джеймса Бонда",
+      "images": [
+        { "id": 1,  "url": "/gallery5/1.webp" },
+        { "id": 2,  "url": "/gallery5/2.webp" },
+        { "id": 3,  "url": "/gallery5/3.webp" },
+        { "id": 4,  "url": "/gallery5/4.webp" },
+        { "id": 5,  "url": "/gallery5/5.webp" },
+        { "id": 6,  "url": "/gallery5/6.webp" },
+        { "id": 7,  "url": "/gallery5/7.webp" },
+        { "id": 8,  "url": "/gallery5/8.webp" },
+        { "id": 9,  "url": "/gallery5/9.webp" },
+        { "id": 10, "url": "/gallery5/10.webp" },
+        { "id": 11, "url": "/gallery5/11.webp" },
+        { "id": 12, "url": "/gallery5/12.webp" },
+        { "id": 13, "url": "/gallery5/13.webp" },
+        { "id": 14, "url": "/gallery5/14.webp" },
+        { "id": 15, "url": "/gallery5/15.webp" },
+        { "id": 16, "url": "/gallery5/16.webp" },
+        { "id": 17, "url": "/gallery5/17.webp" },
+        { "id": 18, "url": "/gallery5/18.webp" },
+        { "id": 19, "url": "/gallery5/19.webp" },
+        { "id": 20, "url": "/gallery5/20.webp" },
+        { "id": 21, "url": "/gallery5/21.webp" }
+      ]
+    },
+    {
+      "id": 6,
+      "nameId": "Rental Van",
+      "nameEn": "Van Rental",
+      "nameRu": "Прокат фургонов",
+      "images": [
+        { "id": 1, "url": "/gallery6/1.webp" },
+        { "id": 2, "url": "/gallery6/2.webp" },
+        { "id": 3, "url": "/gallery6/3.webp" },
+        { "id": 4, "url": "/gallery6/4.webp" },
+        { "id": 5, "url": "/gallery6/5.webp" },
+        { "id": 6, "url": "/gallery6/6.webp" },
+        { "id": 7, "url": "/gallery6/7.webp" },
+        { "id": 8, "url": "/gallery6/8.webp" }
+      ]
+    }
+  ]
+}

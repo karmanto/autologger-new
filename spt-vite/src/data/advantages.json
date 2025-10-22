@@ -1,0 +1,50 @@
+[
+  {
+    "id": 1,
+    "titleKey": "customItinerary",
+    "descriptionKey": "customItineraryDesc",
+    "iconName": "document"
+  },
+  {
+    "id": 2,
+    "titleKey": "vehicleOptions",
+    "descriptionKey": "vehicleOptionsDesc",
+    "iconName": "car"
+  },
+  {
+    "id": 3,
+    "titleKey": "flexibleItinerary",
+    "descriptionKey": "flexibleItineraryDesc",
+    "iconName": "refresh"
+  },
+  {
+    "id": 4,
+    "titleKey": "indonesianGuide",
+    "descriptionKey": "indonesianGuideDesc",
+    "iconName": "chat"
+  },
+  {
+    "id": 5,
+    "titleKey": "trendySpots",
+    "descriptionKey": "trendySpotsDesc",
+    "iconName": "plus-circle"
+  },
+  {
+    "id": 6,
+    "titleKey": "ticketAssistance",
+    "descriptionKey": "ticketAssistanceDesc",
+    "iconName": "ticket"
+  },
+  {
+    "id": 7,
+    "titleKey": "downPayment",
+    "descriptionKey": "downPaymentDesc",
+    "iconName": "currency"
+  },
+  {
+    "id": 8,
+    "titleKey": "chooseAnywhere",
+    "descriptionKey": "chooseAnywhereDesc",
+    "iconName": "globe"
+  }
+]
