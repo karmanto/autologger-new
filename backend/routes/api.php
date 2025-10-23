@@ -1,15 +1,8 @@
 <?php
 
-use App\Http\Controllers\AnnouncementController;
-use App\Http\Controllers\ArticleController;
-use App\Http\Controllers\BlogController;
-use App\Http\Controllers\EventController;
-use App\Http\Controllers\GalleryController;
-use Illuminate\Http\Request;
+use App\Http\Controllers\MachineStatusController; 
+use App\Http\Controllers\MachineDefsController; 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\PromoController;
-use App\Http\Controllers\PackageController;
-use App\Http\Controllers\SeoContentController;
 
 /*
 |--------------------------------------------------------------------------
@@ -28,6 +21,9 @@ use App\Http\Controllers\SeoContentController;
 
 // Route::post('/users', [\App\Http\Controllers\UserController::class, 'register']);
 Route::post('/users/login', [\App\Http\Controllers\UserController::class, 'login']);
+
+Route::get('/machine-status', [MachineStatusController::class, 'index']);
+Route::get('/machine-defs', [MachineDefsController::class, 'index']);
 
 Route::middleware(\App\Http\Middleware\ApiAuthMiddleware::class)->group(function () {
     Route::get('/users/current', [\App\Http\Controllers\UserController::class, 'get']);

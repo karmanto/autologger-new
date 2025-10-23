@@ -1,4 +1,5 @@
-import { handleAuthError } from './auth'; 
+import { handleAuthError } from './auth';
+import { MachineStatusData, MachineDefsData } from './types';
 
 const API_URL = import.meta.env.VITE_API_URL;
 interface FetchOptions extends RequestInit {
@@ -11,16 +12,16 @@ const safeJSONParse = <T>(jsonString: string | T): T | string => {
       return JSON.parse(jsonString) as T;
     } catch (e) {
       console.warn("Failed to parse JSON string:", jsonString, e);
-      return jsonString; 
+      return jsonString;
     }
   }
-  return jsonString; 
+  return jsonString;
 };
 
 export const fetchData = async <T>(endpoint: string, options: FetchOptions = {}): Promise<T> => {
   const headers: HeadersInit = { 'Content-Type': 'application/json' };
-  const token = localStorage.getItem('token'); 
-  if (token) { 
+  const token = localStorage.getItem('token');
+  if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
@@ -30,9 +31,9 @@ export const fetchData = async <T>(endpoint: string, options: FetchOptions = {})
   });
 
   if (!response.ok) {
-    if (response.status === 401) { 
+    if (response.status === 401) {
       handleAuthError();
-      throw new Error('Unauthorized: Token expired or invalid.'); 
+      throw new Error('Unauthorized: Token expired or invalid.');
     }
 
     const contentType = response.headers.get("content-type");
@@ -47,7 +48,7 @@ export const fetchData = async <T>(endpoint: string, options: FetchOptions = {})
 
   const contentType = response.headers.get("content-type");
   if (response.status === 204 || !contentType || !contentType.includes("application/json")) {
-    return null as T; 
+    return null as T;
   }
 
   return response.json();
@@ -55,8 +56,8 @@ export const fetchData = async <T>(endpoint: string, options: FetchOptions = {})
 
 export const fetchMultipartData = async <T>(endpoint: string, options: RequestInit = {}): Promise<T> => {
   const headers: HeadersInit = {};
-  const token = localStorage.getItem('token'); 
-  if (token) { 
+  const token = localStorage.getItem('token');
+  if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
@@ -66,9 +67,9 @@ export const fetchMultipartData = async <T>(endpoint: string, options: RequestIn
   });
 
   if (!response.ok) {
-    if (response.status === 401) { 
+    if (response.status === 401) {
       handleAuthError();
-      throw new Error('Unauthorized: Token expired or invalid.'); 
+      throw new Error('Unauthorized: Token expired or invalid.');
     }
 
     const contentType = response.headers.get("content-type");
@@ -83,8 +84,16 @@ export const fetchMultipartData = async <T>(endpoint: string, options: RequestIn
 
   const contentType = response.headers.get("content-type");
   if (response.status === 204 || !contentType || !contentType.includes("application/json")) {
-    return null as T; 
+    return null as T;
   }
 
   return response.json();
+};
+
+export const getMachineStatusData = async (): Promise<MachineStatusData> => {
+  return fetchData<MachineStatusData>('machine-status');
+};
+
+export const getMachineDefData = async (): Promise<MachineDefsData> => {
+  return fetchData<MachineDefsData>('machine-defs');
 };

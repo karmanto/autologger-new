@@ -1,11 +1,12 @@
 import React from 'react';
 import { Menu, X } from 'lucide-react';
-import 'flag-icons/css/flag-icons.min.css';
 import { HeaderProps } from '../lib/types';
 
 const Header: React.FC<HeaderProps> = ({ mobileMenuOpen, toggleMobileMenu }) => {
+
   const navLinks = [
-    { name: 'home', href: `/` }
+    { name: 'home', href: `/` },
+    { name: 'admin', href: '/admin' },
   ];
 
   return (
@@ -14,7 +15,7 @@ const Header: React.FC<HeaderProps> = ({ mobileMenuOpen, toggleMobileMenu }) => 
       role="banner"
     >
       <div className="max-w-7xl mx-auto px-2 sm:px-2 lg:px-4">
-        <div className="flex justify-between items-center lg:space-x-4">
+        <div className="flex justify-between items-center lg:space-x-4 h-[48px]">
           <div className="flex items-center mr-2 lg:hidden">
             <button
               onClick={toggleMobileMenu}
