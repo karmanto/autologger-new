@@ -1,2 +1,5 @@
 *
 !.gitignore
+!data/
+!/data/machine_defs.json.example
+!/data/machine_status.json.example

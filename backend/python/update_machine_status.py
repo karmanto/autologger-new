@@ -1,135 +1,93 @@
-import json
+from gpiozero import Button
+from signal import pause
 import time
-import random
-from datetime import datetime
-import os
-import tempfile
+import board
+import busio
+import digitalio
+from adafruit_mcp230xx.mcp23017 import MCP23017
 
-JSON_FILE_PATH = 'storage/app/public/data/machine_status.json'
-TIME_UPDATE_INTERVAL_SECONDS = 1     
-CBC_UPDATE_INTERVAL_SECONDS = 10    
+pins = [5, 6, 7, 8, 9, 10, 11, 12, 13, 27, 25, 16, 17, 18, 19, 20, 21, 22]
 
-def ensure_parent_dir(path):
-    parent = os.path.dirname(path)
-    if parent and not os.path.exists(parent):
-        os.makedirs(parent, exist_ok=True)
+names = [
+    "CBC1", "CBC2", "PRS1", "PRS2", "PRS3", "PRS4", "PRS5", "PRS6", "PRS7",
+    "PRS8", "DTR1", "DTR2", "DTR3", "DTR4", "DTR5", "DTR6", "DTR7", "DTR8"
+]
 
-def atomic_write_json(path, data, indent=4):
-    ensure_parent_dir(path)
-    dirpath = os.path.dirname(path) or '.'
-    with tempfile.NamedTemporaryFile('w', delete=False, dir=dirpath, encoding='utf-8') as tmpf:
-        json.dump(data, tmpf, indent=indent, ensure_ascii=False)
-        tmpname = tmpf.name
-    os.replace(tmpname, path)
+buttons = []
 
-def load_json(path):
-    with open(path, 'r', encoding='utf-8') as f:
-        return json.load(f)
+def create_callback(name):
+    def pressed():
+        print(f"{name} Ditekan! (State: HIGH)")
+    def released():
+        print(f"{name} Dilepas! (State: LOW)")
+    return pressed, released
 
-def create_default_structure(now, cbc1=0, cbc2=0):
-    active = [0] * 18 + [2] * 46 
+for i, pin in enumerate(pins):
+    btn = Button(pin, pull_up=True, bounce_time=0.5)
+    pressed_func, released_func = create_callback(names[i])
+    btn.when_pressed = pressed_func
+    btn.when_released = released_func
+    buttons.append(btn)
 
-    active[0] = cbc1  
-    active[1] = cbc2  
+print("Menginisialisasi MCP23017...")
+i2c = busio.I2C(board.SCL, board.SDA)
 
-    return {
-        "tanggal": now.strftime("%Y-%m-%d"),
-        "waktu": now.strftime("%H:%M:%S"),
-        "activeMachine": active
-    }
+mcp_addresses = [0x20, 0x21, 0x22]
+mcp_devices = []
+mcp_pins = []
 
-def update_machine_status(update_cbc=False):
-    now = datetime.now()
-    current_date = now.strftime("%Y-%m-%d")
-    current_time = now.strftime("%H:%M:%S")
+spare_names = [f"SPARE{i}" for i in range(48)]
+DEBOUNCE_DELAY = 0.5
 
-    if update_cbc:
-        cbc1_value = random.randint(0, 1)
-        cbc2_value = random.randint(0, 1)
-    else:
-        cbc1_value = None
-        cbc2_value = None
+for addr in mcp_addresses:
+    mcp = MCP23017(i2c, address=addr)
+    mcp_devices.append(mcp)
 
-    try:
-        data = load_json(JSON_FILE_PATH)
+pin_index = 0
+for mcp in mcp_devices:
+    for pin_num in range(16):
+        pin = mcp.get_pin(pin_num)
+        pin.direction = digitalio.Direction.INPUT
+        pin.pull = digitalio.Pull.UP
+        
+        name = spare_names[pin_index]
+        pressed_func, released_func = create_callback(name)
+        
+        initial_state = pin.value
+        mcp_pins.append({
+            'pin': pin,
+            'name': name,
+            'pressed': pressed_func,
+            'released': released_func,
+            'last_state': initial_state,
+            'last_fired_state': initial_state,
+            'last_debounce_time': 0
+        })
+        pin_index += 1
 
-        if not isinstance(data, dict):
-            raise ValueError("Root JSON is not an object/dict")
+print("Menunggu input...")
 
-        active = data.get('activeMachine')
-        if active is None or not isinstance(active, list):
-            active = []
-            data['activeMachine'] = active
+def check_mcp_pins():
+    for pin_info in mcp_pins:
+        current_state = pin_info['pin'].value
 
-        data['tanggal'] = current_date
-        data['waktu'] = current_time
+        if current_state != pin_info['last_state']:
+            pin_info['last_debounce_time'] = time.time()
+            pin_info['last_state'] = current_state
 
-        if update_cbc:
-            while len(active) < 64:
-                active.append(0)
-
-            active[0] = cbc1_value   
-            active[1] = cbc2_value   
-
-            atomic_write_json(JSON_FILE_PATH, data)
-            print(f"[{now.strftime('%Y-%m-%d %H:%M:%S')}] Updated waktu + CBC (CBC1={cbc1_value}, CBC2={cbc2_value})")
         else:
-            atomic_write_json(JSON_FILE_PATH, data)
-            print(f"[{now.strftime('%Y-%m-%d %H:%M:%S')}] Updated waktu only")
+            if (time.time() - pin_info['last_debounce_time']) > DEBOUNCE_DELAY:
+                if current_state != pin_info['last_fired_state']:
+                    if current_state == False:
+                        pin_info['pressed']()
+                    else:
+                        pin_info['released']()
+                    
+                    pin_info['last_fired_state'] = current_state
 
-    except FileNotFoundError:
-        if update_cbc:
-            c1 = cbc1_value
-            c2 = cbc2_value
-        else:
-            c1 = 0
-            c2 = 0
-        data = create_default_structure(now, c1, c2)
-        atomic_write_json(JSON_FILE_PATH, data)
-        print(f"[{now.strftime('%Y-%m-%d %H:%M:%S')}] File not found. Created new file at {JSON_FILE_PATH} (CBC1={c1}, CBC2={c2})")
-
-    except json.JSONDecodeError:
-        backup_path = JSON_FILE_PATH + '.corrupt.' + now.strftime("%Y%m%d%H%M%S")
-        try:
-            os.rename(JSON_FILE_PATH, backup_path)
-            print(f"Warning: JSON decode error. Backed up corrupted file to {backup_path}")
-        except Exception as e:
-            print(f"Warning: failed to backup corrupted file: {e}")
-        if update_cbc:
-            c1 = cbc1_value
-            c2 = cbc2_value
-        else:
-            c1 = 0
-            c2 = 0
-        data = create_default_structure(now, c1, c2)
-        atomic_write_json(JSON_FILE_PATH, data)
-        print(f"[{now.strftime('%Y-%m-%d %H:%M:%S')}] Created new file at {JSON_FILE_PATH} after corruption (CBC1={c1}, CBC2={c2})")
-
-    except Exception as e:
-        print(f"An unexpected error occurred while updating machine status: {e}")
-
-def main():
-    print("Starting machine status updater script.")
-    print(f"Target file: {JSON_FILE_PATH}")
-    print(f"Update waktu tiap {TIME_UPDATE_INTERVAL_SECONDS} detik; update CBC tiap {CBC_UPDATE_INTERVAL_SECONDS} detik.")
-    print("Press Ctrl+C to stop the script.")
-
-    next_cbc_time = time.time() + CBC_UPDATE_INTERVAL_SECONDS
-
-    try:
-        while True:
-            now_ts = time.time()
-            do_cbc = False
-            if now_ts >= next_cbc_time:
-                do_cbc = True
-                next_cbc_time = now_ts + CBC_UPDATE_INTERVAL_SECONDS
-
-            update_machine_status(update_cbc=do_cbc)
-            time.sleep(TIME_UPDATE_INTERVAL_SECONDS)
-    except KeyboardInterrupt:
-        print("\nStopped by user (KeyboardInterrupt). Goodbye.")
-    except Exception as e:
-        print(f"Fatal error in main loop: {e}")
-
-if __name__ == "__main__":
-    main()
+try:
+    while True:
+        check_mcp_pins()
+        time.sleep(0.05)
+except KeyboardInterrupt:
+    print("Program dihentikan.")

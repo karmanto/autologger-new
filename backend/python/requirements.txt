@@ -1,4 +1,2 @@
-# requirements.txt
-RPi.GPIO
+gpiozero
 adafruit-circuitpython-mcp230xx
-adafruit-circuitpython-busdevice
