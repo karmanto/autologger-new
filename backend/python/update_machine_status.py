@@ -276,6 +276,7 @@ def initialize_machine_status():
             try:
                 current_state = pin_info['pin'].value
                 running_status = 0 if current_state else 1
+                pin_info['last_state'] = current_state
                 save_machine_status(machine['id'], running_status)
                 print(f"MCP Machine {machine['name']} (Pin {mcp_index}) initialized to {running_status}")
             except OSError:
@@ -317,9 +318,8 @@ signal.signal(signal.SIGTERM, signal_handler)
 # Validasi konfigurasi sebelum memulai
 validate_config()
 
-# CEK RTC ANOMALY TERLEBIH DAHULU - jika ada anomali, langsung shutdown normal
+# CEK RTC ANOMALY TERLEBIH DAHULU
 if check_rtc_anomaly():
-    cleanup()
     sys.exit(1)
 
 # Cek apakah sebelumnya ada crash
