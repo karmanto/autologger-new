@@ -1,3 +1,5 @@
 *
 !public/
 !.gitignore
+!data/
+!/data/machine_defs.json

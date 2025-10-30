@@ -7,7 +7,7 @@ const MachineStatus: React.FC = () => {
   const [status, setStatus] = useState<MachineStatusData | null>(null);
   const [defs, setDefs] = useState<MachineDefsData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null); 
 
   useEffect(() => {
     const fetchData = async () => {
@@ -19,44 +19,33 @@ const MachineStatus: React.FC = () => {
 
         const statusData = await getMachineStatusData();
         setStatus(statusData);
+        setError(null); 
       } catch (err) {
-        console.error(err);
-        setError("Failed to fetch machine data.");
+        console.error("Fetch error:", err);
+        if (err instanceof Error) {
+          setError(`Failed to fetch: ${err.message}`);
+        } else {
+          setError("Failed to fetch machine data.");
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-    
+
     const intervalId = setInterval(fetchData, 2000);
 
     return () => clearInterval(intervalId);
-  }, [defs]);
+  }, [defs]); 
 
-  if (loading)
+  if (loading) {
     return (
       <div className="flex justify-center items-center h-screen font-sans">
         Loading...
       </div>
     );
-
-  if (error)
-    return (
-      <div className="flex justify-center items-center h-screen text-red-500 font-sans">
-        {error}
-      </div>
-    );
-
-  if (!status || !defs || !defs.data)
-    return (
-      <div className="flex justify-center items-center h-screen font-sans">
-        No data available.
-      </div>
-    );
-
-  // Filter hanya mesin dengan status ON di defs
-  const activeDefs = defs.data.filter((def) => def.status === "ON");
+  }
 
   const getStatusInfo = (value: number) => {
     switch (value) {
@@ -91,25 +80,33 @@ const MachineStatus: React.FC = () => {
     }
   };
 
+  const activeDefs = defs?.data?.filter((def) => def.status === "ON") || [];
+
   return (
     <div className="container mx-auto p-4 pt-16 font-sans">
       <h1 className="text-3xl font-bold mb-6 text-center text-gray-800">
         Machine Status Dashboard
       </h1>
 
-      <p className="text-sm text-gray-500 text-center mb-8">
-        Last updated: {status.tanggal} {status.waktu}
+      {error && (
+        <div className="mb-4 p-3 bg-red-100 text-red-700 text-center rounded-md">
+          {error}
+        </div>
+      )}
+
+      <p className={`text-sm text-center mb-8 ${error ? 'text-red-500' : 'text-gray-500'}`}>
+        Last updated: {status ? `${status.tanggal} ${status.waktu}` : 'Error fetching time'}
       </p>
 
-      {activeDefs && activeDefs.length > 0 ? (
+      {activeDefs.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {activeDefs.map((machine, index) => {
-            const value = status.activeMachine[index] ?? 2; // default OFFLINE jika index tidak ada
+            const value = status?.activeMachine[index] ?? 2;
             const { text, color, bg, icon } = getStatusInfo(value);
 
             return (
               <div
-                key={machine.name}
+                key={`${machine.name}-${index}`} 
                 className={`flex items-center justify-between p-4 rounded-xl shadow-sm border ${bg} hover:shadow-md transition-shadow duration-200`}
               >
                 <div className="flex items-center space-x-3">
@@ -128,7 +125,7 @@ const MachineStatus: React.FC = () => {
         </div>
       ) : (
         <div className="text-center text-gray-500 mt-10">
-          No machine definitions found.
+          No active machine definitions found.
         </div>
       )}
     </div>

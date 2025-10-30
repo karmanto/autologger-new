@@ -14,9 +14,9 @@ class UserSeeder extends Seeder
      */
     public function run(): void
     {
-        User::create([
-            'username' => 'admin@simbolonphukettour.com',
-            'password' => Hash::make('*Bismillah*2025'),
+        User::updateOrCreate([
+            'username' => 'admin@autologger.com',
+            'password' => Hash::make('Qazcde123654$AL'),
             'name' => 'admin',
             'token' => ''
         ]);
