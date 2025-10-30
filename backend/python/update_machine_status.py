@@ -8,7 +8,6 @@ import mysql.connector
 from datetime import datetime, timedelta
 import sys
 import os
-import atexit
 import signal
 from dotenv import load_dotenv
 
@@ -178,6 +177,40 @@ def mark_process_stopped():
         cursor.close()
         connection.close()
 
+def check_rtc_anomaly():
+    """Cek apakah ada anomali RTC (waktu heartbeat lebih maju dari waktu sekarang)"""
+    connection = get_db_connection()
+    if not connection:
+        return False
+        
+    cursor = connection.cursor(dictionary=True)
+    
+    try:
+        # Cek heartbeat terakhir
+        query = "SELECT last_heartbeat FROM heartbeats WHERE process_name = %s"
+        cursor.execute(query, (PROCESS_NAME,))
+        result = cursor.fetchone()
+        
+        if result:
+            last_heartbeat = result['last_heartbeat']
+            current_time = datetime.now()
+            
+            # Jika waktu heartbeat lebih maju dari waktu sekarang (anomali RTC)
+            if last_heartbeat > current_time:
+                print(f"⚠️  DETECTED RTC ANOMALY!")
+                print(f"   Waktu heartbeat terakhir: {last_heartbeat}")
+                print(f"   Waktu sistem sekarang: {current_time}")
+                print(f"   Selisih: {(last_heartbeat - current_time).total_seconds()} detik")
+                print("   Melakukan shutdown normal karena RTC bermasalah...")
+                return True
+        return False
+    except mysql.connector.Error as err:
+        print(f"Error checking RTC anomaly: {err}")
+        return False
+    finally:
+        cursor.close()
+        connection.close()
+
 def check_previous_crash():
     """Cek apakah program sebelumnya mati tiba-tiba dan catat status 0 jika iya"""
     connection = get_db_connection()
@@ -263,7 +296,7 @@ def cleanup():
             save_machine_status(machine['id'], 0, current_time)
     
     # Matikan LED sebelum berhenti
-    if 'status_led' in globals():
+    if 'status_led' in globals() and status_led is not None:
         status_led.off()
         print("LED dimatikan")
     
@@ -277,13 +310,17 @@ def signal_handler(signum, frame):
     cleanup()
     sys.exit(0)
 
-# Register signal handlers dan cleanup function
-atexit.register(cleanup)
+# HANYA register signal handlers (HAPUS atexit.register)
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
 # Validasi konfigurasi sebelum memulai
 validate_config()
+
+# CEK RTC ANOMALY TERLEBIH DAHULU - jika ada anomali, langsung shutdown normal
+if check_rtc_anomaly():
+    cleanup()
+    sys.exit(1)
 
 # Cek apakah sebelumnya ada crash
 check_previous_crash()
