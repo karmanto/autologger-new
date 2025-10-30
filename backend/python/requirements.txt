@@ -1,2 +1,4 @@
 gpiozero
 adafruit-circuitpython-mcp230xx
+python-dotenv
+mysql-connector-python
