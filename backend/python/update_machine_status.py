@@ -42,6 +42,135 @@ PROCESS_NAME = "machine_monitor"
 LED_PIN = 23
 LED_BLINK_INTERVAL = 0.5  # detik
 
+# Konfigurasi run hour dari environment variables
+RUNHOUR_UPDATE_INTERVAL = int(os.getenv('RUNHOUR_UPDATE_INTERVAL', 60))  # detik
+
+class RunHourCalculator:
+    def __init__(self):
+        self.machine_states = {}  # {machine_id: {'last_status': bool, 'last_update': timestamp, 'current_run_hour': int}}
+        self.last_runhour_update = time.time()
+    
+    def initialize_machine_states(self, machines):
+        """Initialize machine states from database"""
+        connection = self.get_db_connection()
+        if not connection:
+            return
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        try:
+            cursor.execute("SELECT id, last_running_status, last_status_change, run_hour FROM machine_defs")
+            db_machines = cursor.fetchall()
+            
+            for machine in db_machines:
+                self.machine_states[machine['id']] = {
+                    'last_status': machine['last_running_status'],
+                    'last_update': machine['last_status_change'].timestamp() if machine['last_status_change'] else time.time(),
+                    'current_run_hour': machine['run_hour']
+                }
+            print(f"Initialized {len(self.machine_states)} machine states from database")
+                
+        except mysql.connector.Error as err:
+            print(f"Error initializing machine states: {err}")
+        finally:
+            cursor.close()
+            connection.close()
+    
+    def get_db_connection(self):
+        """Membuat koneksi ke database"""
+        try:
+            connection = mysql.connector.connect(**db_config)
+            return connection
+        except mysql.connector.Error as err:
+            print(f"Error connecting to database: {err}")
+            return None
+    
+    def update_machine_status(self, machine_id, new_status, status_time=None):
+        """Update status mesin dan hitung run hour"""
+        if status_time is None:
+            status_time = time.time()
+            
+        if machine_id not in self.machine_states:
+            self.machine_states[machine_id] = {
+                'last_status': False,
+                'last_update': status_time,
+                'current_run_hour': 0
+            }
+        
+        current_state = self.machine_states[machine_id]
+        
+        # Jika status berubah
+        if new_status != current_state['last_status']:
+            # Hitung selisih waktu sejak last_update
+            time_diff = status_time - current_state['last_update']
+            
+            # Jika sebelumnya running, tambahkan ke run hour
+            if current_state['last_status']:  # dari running ke stopped
+                current_state['current_run_hour'] += time_diff
+                print(f"Machine {machine_id} stopped. Added {time_diff:.2f} seconds. Total: {current_state['current_run_hour']:.2f}s")
+            
+            # Update state
+            current_state['last_status'] = new_status
+            current_state['last_update'] = status_time
+            
+            # Update database
+            self.update_database_runhour(machine_id, current_state['current_run_hour'], new_status, status_time)
+    
+    def periodic_runhour_update(self):
+        """Periodic update untuk mesin yang sedang running"""
+        current_time = time.time()
+        
+        # Update hanya jika interval sudah terpenuhi
+        if current_time - self.last_runhour_update >= RUNHOUR_UPDATE_INTERVAL:
+            updated_count = 0
+            for machine_id, state in self.machine_states.items():
+                if state['last_status']:  # Jika mesin sedang running
+                    time_diff = current_time - state['last_update']
+                    state['current_run_hour'] += time_diff
+                    state['last_update'] = current_time
+                    
+                    # Update database
+                    self.update_database_runhour(machine_id, state['current_run_hour'], True, current_time)
+                    updated_count += 1
+            
+            if updated_count > 0:
+                print(f"Periodic runhour update: Updated {updated_count} running machines")
+            self.last_runhour_update = current_time
+    
+    def update_database_runhour(self, machine_id, run_hour, current_status, update_time):
+        """Update run hour di database"""
+        connection = self.get_db_connection()
+        if not connection:
+            return
+            
+        cursor = connection.cursor()
+        
+        try:
+            query = """
+            UPDATE machine_defs 
+            SET run_hour = %s, last_running_status = %s, last_status_change = %s, last_runhour_update = %s, updated_at = %s
+            WHERE id = %s
+            """
+            update_datetime = datetime.fromtimestamp(update_time)
+            cursor.execute(query, (run_hour, current_status, update_datetime, update_datetime, update_datetime, machine_id))
+            connection.commit()
+            
+        except mysql.connector.Error as err:
+            print(f"Error updating run hour for machine {machine_id}: {err}")
+            connection.rollback()
+        finally:
+            cursor.close()
+            connection.close()
+    
+    def get_machine_runhour(self, machine_id):
+        """Get current run hour for a machine"""
+        if machine_id in self.machine_states:
+            return self.machine_states[machine_id]['current_run_hour']
+        return 0
+
+# Inisialisasi run hour calculator
+runhour_calc = RunHourCalculator()
+
 def validate_config():
     """Validasi konfigurasi yang diperlukan"""
     required_vars = ['DB_USER', 'DB_PASSWORD', 'DB_NAME']
@@ -58,6 +187,7 @@ def validate_config():
     print(f"MCP Addresses: {[hex(addr) for addr in mcp_addresses]}")
     print(f"Debounce Delay: {DEBOUNCE_DELAY}")
     print(f"LED Pin: {LED_PIN} dengan interval blink {LED_BLINK_INTERVAL} detik")
+    print(f"RunHour Update Interval: {RUNHOUR_UPDATE_INTERVAL} detik")
 
 def get_db_connection():
     """Membuat koneksi ke database"""
@@ -259,11 +389,17 @@ def initialize_machine_status():
     
     print("Initializing machine status based on current hardware state...")
     
+    # Initialize run hour calculator
+    runhour_calc.initialize_machine_states(machines)
+    
     # Baca status awal dari GPIO
     for i, pin in enumerate(pins):
         if i < len(machines):
             machine = machines[i]
             initial_state = 1 if buttons[i].is_pressed else 0
+            
+            # Update run hour calculator dengan status awal
+            runhour_calc.update_machine_status(machine['id'], initial_state)
             save_machine_status(machine['id'], initial_state)
             print(f"GPIO Machine {machine['name']} (Pin {pin}) initialized to {initial_state}")
     
@@ -280,6 +416,8 @@ def initialize_machine_status():
                 pin_info['last_state'] = current_state
                 pin_info['last_fired_state'] = current_state
                 
+                # Update run hour calculator dengan status awal
+                runhour_calc.update_machine_status(machine['id'], running_status)
                 save_machine_status(machine['id'], running_status)
                 print(f"MCP Machine {machine['name']} (Pin {mcp_index}) initialized to {running_status}")
             except OSError:
@@ -297,6 +435,8 @@ def cleanup():
     if machines:
         current_time = datetime.now()
         for machine in machines:
+            # Update run hour terakhir sebelum berhenti
+            runhour_calc.update_machine_status(machine['id'], 0, current_time.timestamp())
             save_machine_status(machine['id'], 0, current_time)
     
     # Matikan LED sebelum berhenti
@@ -406,17 +546,16 @@ if not machines:
 
 print(f"Total machines in database: {len(machines)}")
 
-# Inisialisasi status mesin
-initialize_machine_status()
-
 def create_gpio_callback(machine_id, machine_name, index):
     """Membuat callback function untuk GPIO buttons"""
     def pressed():
         print(f"{machine_name} Ditekan! (State: LOW)")
+        runhour_calc.update_machine_status(machine_id, 1)
         save_machine_status(machine_id, 1)
     
     def released():
         print(f"{machine_name} Dilepas! (State: HIGH)")
+        runhour_calc.update_machine_status(machine_id, 0)
         save_machine_status(machine_id, 0)
     
     return pressed, released
@@ -434,10 +573,14 @@ for i, btn in enumerate(buttons):
     elif btn is None:
         print(f"Warning: GPIO pin {pins[i]} tidak dapat diinisialisasi, callback tidak diset")
 
+# Inisialisasi status mesin
+initialize_machine_status()
+
 print("Starting main loop...")
 
 last_heartbeat_time = time.time()
 last_led_toggle_time = time.time()
+last_runhour_update_time = time.time()
 led_state = False
 
 try:
@@ -449,6 +592,9 @@ try:
             if update_heartbeat():
                 print(f"Heartbeat updated at {datetime.now()}")
             last_heartbeat_time = current_time
+        
+        # Update run hour untuk mesin yang sedang running
+        runhour_calc.periodic_runhour_update()
         
         # Kontrol LED flip-flop
         if current_time - last_led_toggle_time >= LED_BLINK_INTERVAL:
@@ -483,9 +629,11 @@ try:
                 if current_state != pin_info.get('last_fired_state', None):
                     if current_state == False:  # Button pressed
                         print(f"{machine['name']} Ditekan! (State: LOW)")
+                        runhour_calc.update_machine_status(machine['id'], 1)
                         save_machine_status(machine['id'], 1)
                     else:  # Button released
                         print(f"{machine['name']} Dilepas! (State: HIGH)")
+                        runhour_calc.update_machine_status(machine['id'], 0)
                         save_machine_status(machine['id'], 0)
                     
                     pin_info['last_fired_state'] = current_state

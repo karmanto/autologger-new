@@ -22,6 +22,10 @@ class MachineDefsSeeder extends Seeder
                     'name' => $machine['name'],
                     'desc' => $machine['desc'],
                     'status' => $machine['status'],
+                    'run_hour' => 0,
+                    'last_status_change' => now(),
+                    'last_running_status' => false,
+                    'last_runhour_update' => now(),
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
