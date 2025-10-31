@@ -167,6 +167,66 @@ class RunHourCalculator:
         if machine_id in self.machine_states:
             return self.machine_states[machine_id]['current_run_hour']
         return 0
+    
+    def recover_from_crash(self, crash_time, machines):
+        """Pulihkan run hour dari crash dengan menghitung waktu sejak last_status_change sampai crash_time"""
+        print("Recovering run hours from previous crash...")
+        
+        connection = self.get_db_connection()
+        if not connection:
+            return False
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        try:
+            # Ambil semua mesin yang sedang running saat crash
+            cursor.execute("""
+                SELECT id, last_running_status, last_status_change, run_hour 
+                FROM machine_defs 
+                WHERE last_running_status = 1
+            """)
+            running_machines = cursor.fetchall()
+            
+            recovered_count = 0
+            for machine in running_machines:
+                if machine['last_status_change']:
+                    # Hitung selisih waktu dari last_status_change sampai crash_time
+                    last_change = machine['last_status_change'].timestamp()
+                    crash_timestamp = crash_time.timestamp()
+                    time_diff = crash_timestamp - last_change
+                    
+                    if time_diff > 0:
+                        # Tambahkan ke run_hour
+                        new_run_hour = machine['run_hour'] + time_diff
+                        
+                        # Update database
+                        update_query = """
+                        UPDATE machine_defs 
+                        SET run_hour = %s, last_running_status = 0, last_status_change = %s, last_runhour_update = %s
+                        WHERE id = %s
+                        """
+                        cursor.execute(update_query, (new_run_hour, crash_time, crash_time, machine['id']))
+                        
+                        # Update state di memory
+                        if machine['id'] in self.machine_states:
+                            self.machine_states[machine['id']]['current_run_hour'] = new_run_hour
+                            self.machine_states[machine['id']]['last_status'] = False
+                            self.machine_states[machine['id']]['last_update'] = crash_timestamp
+                        
+                        print(f"Recovered machine {machine['id']}: added {time_diff:.2f}s, total: {new_run_hour:.2f}s")
+                        recovered_count += 1
+            
+            connection.commit()
+            print(f"Recovery completed: {recovered_count} machines recovered")
+            return True
+            
+        except mysql.connector.Error as err:
+            print(f"Error recovering from crash: {err}")
+            connection.rollback()
+            return False
+        finally:
+            cursor.close()
+            connection.close()
 
 # Inisialisasi run hour calculator
 runhour_calc = RunHourCalculator()
@@ -342,7 +402,7 @@ def check_rtc_anomaly():
         connection.close()
 
 def check_previous_crash():
-    """Cek apakah program sebelumnya mati tiba-tiba dan catat status 0 jika iya"""
+    """Cek apakah program sebelumnya mati tiba-tiba dan pulihkan run hour"""
     connection = get_db_connection()
     if not connection:
         return False
@@ -361,13 +421,19 @@ def check_previous_crash():
             
             # Jika terakhir heartbeat lebih dari 2x interval, dianggap crash
             if time_diff.total_seconds() > HEARTBEAT_INTERVAL * 2:
-                print(f"Deteksi sistem sebelumnya mati tiba-tiba!")
-                print(f"Terakhir heartbeat: {last_heartbeat}")
-                print("Mencatat semua mesin status 0 pada waktu terakhir heartbeat...")
+                print(f"🚨 DETECTED PREVIOUS CRASH!")
+                print(f"   Terakhir heartbeat: {last_heartbeat}")
+                print(f"   Waktu sekarang: {datetime.now()}")
+                print(f"   Selisih: {time_diff.total_seconds()} detik")
+                print("   Memulihkan run hour dan mencatat status mesin...")
                 
                 # Dapatkan semua mesin
                 machines = get_machine_defs()
                 if machines:
+                    # 1. Pulihkan run hour untuk mesin yang sedang running saat crash
+                    runhour_calc.recover_from_crash(last_heartbeat, machines)
+                    
+                    # 2. Catat status 0 untuk semua mesin pada waktu crash
                     for machine in machines:
                         save_machine_status(machine['id'], 0, last_heartbeat)
                 
@@ -396,12 +462,15 @@ def initialize_machine_status():
     for i, pin in enumerate(pins):
         if i < len(machines):
             machine = machines[i]
-            initial_state = 1 if buttons[i].is_pressed else 0
-            
-            # Update run hour calculator dengan status awal
-            runhour_calc.update_machine_status(machine['id'], initial_state)
-            save_machine_status(machine['id'], initial_state)
-            print(f"GPIO Machine {machine['name']} (Pin {pin}) initialized to {initial_state}")
+            if buttons[i] is not None:
+                initial_state = 1 if buttons[i].is_pressed else 0
+                
+                # Update run hour calculator dengan status awal
+                runhour_calc.update_machine_status(machine['id'], initial_state)
+                save_machine_status(machine['id'], initial_state)
+                print(f"GPIO Machine {machine['name']} (Pin {pin}) initialized to {initial_state}")
+            else:
+                print(f"GPIO Machine {machine['name']} (Pin {pin}) skipped - button not initialized")
     
     # Baca status awal dari MCP23017
     mcp_index = 0
@@ -454,7 +523,9 @@ def signal_handler(signum, frame):
     cleanup()
     sys.exit(0)
 
-# HANYA register signal handlers (HAPUS atexit.register)
+# ========== MAIN PROGRAM ==========
+
+# Register signal handlers
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
@@ -463,9 +534,10 @@ validate_config()
 
 # CEK RTC ANOMALY TERLEBIH DAHULU
 if check_rtc_anomaly():
+    print("Shutting down due to RTC anomaly...")
     sys.exit(1)
 
-# Cek apakah sebelumnya ada crash
+# Cek apakah sebelumnya ada crash dan pulihkan run hour
 check_previous_crash()
 
 # Inisialisasi heartbeat pertama
@@ -570,8 +642,8 @@ for i, btn in enumerate(buttons):
         btn.when_pressed = pressed_func
         btn.when_released = released_func
         print(f"GPIO callback set for {machine['name']} on pin {pins[i]}")
-    elif btn is None:
-        print(f"Warning: GPIO pin {pins[i]} tidak dapat diinisialisasi, callback tidak diset")
+    elif btn is None and i < len(machines):
+        print(f"Warning: GPIO pin {pins[i]} tidak dapat diinisialisasi, callback tidak diset untuk {machines[i]['name']}")
 
 # Inisialisasi status mesin
 initialize_machine_status()
@@ -645,4 +717,6 @@ except KeyboardInterrupt:
     cleanup()
 except Exception as e:
     print(f"Unexpected error: {e}")
+    import traceback
+    traceback.print_exc()
     cleanup()
