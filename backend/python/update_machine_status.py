@@ -359,55 +359,32 @@ def check_previous_crash():
     cursor = connection.cursor(dictionary=True)
 
     try:
-        query = "SELECT last_heartbeat FROM heartbeats WHERE process_name = %s AND is_running = TRUE"
-        cursor.execute(query, (PROCESS_NAME,))
-        result = cursor.fetchone()
+        print(f"🚨 DETECTED PREVIOUS CRASH!")
 
-        if result:
-            last_heartbeat = result['last_heartbeat']
-            if last_heartbeat.tzinfo is None:
-                last_heartbeat = last_heartbeat.replace(tzinfo=timezone.utc)
-            time_diff = datetime.now(timezone.utc) - last_heartbeat
+        machines = get_machine_defs()
+        if machines:
+            for machine in machines:
+                if machine['last_running_status'] == 1:
+                    last_runhour_update_db = machine['last_runhour_update']
 
-            print(f"🚨 DETECTED PREVIOUS CRASH!")
-            print(f"   Terakhir heartbeat: {last_heartbeat}")
-            print(f"   Waktu sekarang: {datetime.now(timezone.utc)}")
-            print(f"   Selisih: {time_diff.total_seconds()} detik")
-            print("   Memulihkan run hour dan mencatat status mesin...")
+                    if last_runhour_update_db is not None:
+                        update_query = """
+                        UPDATE machine_defs
+                        SET last_running_status = 0, last_status_change = %s, updated_at = %s
+                        WHERE id = %s
+                        """
+                        update_cursor = connection.cursor()
+                        try:
+                            update_cursor.execute(update_query, (last_runhour_update_db, last_runhour_update_db, machine['id']))
+                            connection.commit()
+                            print(f"Machine {machine['id']} last status updated.")
+                        except mysql.connector.Error as err:
+                            print(f"Error updating run hour for machine {machine['id']} during crash recovery: {err}")
+                            connection.rollback()
+                        finally:
+                            update_cursor.close()
 
-            machines = get_machine_defs()
-            if machines:
-                for machine in machines:
-                    if machine['last_running_status'] == 1:
-                        run_hour_db = machine['run_hour'] if machine['run_hour'] is not None else 0.0
-                        last_runhour_update_db = machine['last_runhour_update']
-
-                        if last_runhour_update_db is not None:
-                            if last_runhour_update_db.tzinfo is None:
-                                last_runhour_update_db = last_runhour_update_db.replace(tzinfo=timezone.utc)
-                            duration_since_start = last_heartbeat - last_runhour_update_db
-                            duration_seconds = duration_since_start.total_seconds()
-
-                            new_run_hour = run_hour_db + duration_seconds
-
-                            update_query = """
-                            UPDATE machine_defs
-                            SET run_hour = %s, last_running_status = 0, last_status_change = %s,
-                                last_runhour_update = %s, updated_at = %s
-                            WHERE id = %s
-                            """
-                            update_cursor = connection.cursor()
-                            try:
-                                update_cursor.execute(update_query, (new_run_hour, last_heartbeat, last_heartbeat, last_heartbeat, machine['id']))
-                                connection.commit()
-                                print(f"Machine {machine['id']} run hour updated from {run_hour_db} to {new_run_hour} after crash recovery.")
-                            except mysql.connector.Error as err:
-                                print(f"Error updating run hour for machine {machine['id']} during crash recovery: {err}")
-                                connection.rollback()
-                            finally:
-                                update_cursor.close()
-
-                        save_machine_status(machine['id'], 0, last_heartbeat)
+                    save_machine_status(machine['id'], 0, last_runhour_update_db)
 
             return True
         return False
