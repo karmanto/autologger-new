@@ -379,7 +379,34 @@ def check_previous_crash():
             if machines:
                 for machine in machines:
                     if machine['last_running_status'] == 1:
-                        runhour_calc.update_machine_status(machine['id'], 0, last_heartbeat.timestamp())
+                        run_hour_db = machine['run_hour'] if machine['run_hour'] is not None else 0.0
+                        last_runhour_update_db = machine['last_runhour_update']
+
+                        if last_runhour_update_db is not None:
+                            if last_runhour_update_db.tzinfo is None:
+                                last_runhour_update_db = last_runhour_update_db.replace(tzinfo=timezone.utc)
+                            duration_since_start = last_heartbeat - last_runhour_update_db
+                            duration_seconds = duration_since_start.total_seconds()
+
+                            new_run_hour = run_hour_db + duration_seconds
+
+                            update_query = """
+                            UPDATE machine_defs
+                            SET run_hour = %s, last_running_status = 0, last_status_change = %s,
+                                last_runhour_update = %s, updated_at = %s
+                            WHERE id = %s
+                            """
+                            update_cursor = connection.cursor()
+                            try:
+                                update_cursor.execute(update_query, (new_run_hour, last_heartbeat, last_heartbeat, last_heartbeat, machine['id']))
+                                connection.commit()
+                                print(f"Machine {machine['id']} run hour updated from {run_hour_db} to {new_run_hour} after crash recovery.")
+                            except mysql.connector.Error as err:
+                                print(f"Error updating run hour for machine {machine['id']} during crash recovery: {err}")
+                                connection.rollback()
+                            finally:
+                                update_cursor.close()
+
                         save_machine_status(machine['id'], 0, last_heartbeat)
 
             return True
