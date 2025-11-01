@@ -100,6 +100,10 @@ class RunHourCalculator:
         if new_status != current_state['last_status']:
             time_diff = status_time - current_state['last_update']
 
+            print(
+                f"DEBUG: Machine {machine_id} - status_time: {status_time}, current_state['last_update']: {current_state['last_update']}"
+            )
+
             if current_state['last_status']:
                 current_state['current_run_hour'] += time_diff
                 print(
