@@ -130,7 +130,7 @@ class RunHourCalculator:
                     state['last_update'] = current_time
 
                     print(
-                        f"bajingan pukimak anjing babi current_time {current_time} last update {state['last_update'] time diff {time_diff}}. "
+                        f"bajingan pukimak anjing babi current_time {current_time} last update {state['last_update']} time diff {time_diff}. "
                     )
 
                     self._update_database_runhour(
