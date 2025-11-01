@@ -328,6 +328,9 @@ def check_rtc_anomaly():
             last_heartbeat = result['last_heartbeat']
             current_time = datetime.now(timezone.utc)
 
+            if last_heartbeat.tzinfo is None:
+                last_heartbeat = last_heartbeat.replace(tzinfo=timezone.utc)
+
             if last_heartbeat > current_time:
                 print(f"⚠️  DETECTED RTC ANOMALY!")
                 print(f"   Waktu heartbeat terakhir: {last_heartbeat}")
@@ -358,6 +361,8 @@ def check_previous_crash():
 
         if result:
             last_heartbeat = result['last_heartbeat']
+            if last_heartbeat.tzinfo is None:
+                last_heartbeat = last_heartbeat.replace(tzinfo=timezone.utc)
             time_diff = datetime.now(timezone.utc) - last_heartbeat
 
             print(f"🚨 DETECTED PREVIOUS CRASH!")
