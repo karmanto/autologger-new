@@ -149,14 +149,18 @@ class RunHourCalculator:
                     last_runhour_update = %s, updated_at = %s
                 WHERE id = %s
                 """
+
+                update_datetime = datetime.fromtimestamp(update_time)
+                cursor.execute(query, (run_hour, current_status, update_datetime, update_datetime, update_datetime, machine_id))
             else:
                 query = """
                 UPDATE machine_defs
                 SET run_hour = %s, last_running_status = %s, last_runhour_update = %s, updated_at = %s
                 WHERE id = %s
                 """
-            update_datetime = datetime.fromtimestamp(update_time)
-            cursor.execute(query, (run_hour, current_status, update_datetime, update_datetime, machine_id))
+
+                update_datetime = datetime.fromtimestamp(update_time)
+                cursor.execute(query, (run_hour, current_status, update_datetime, update_datetime, machine_id))
 
             connection.commit()
 
@@ -366,8 +370,7 @@ def check_previous_crash():
                 machines = get_machine_defs()
                 if machines:
                     for machine in machines:
-                        # if machine['last_running_status'] == 1:
-                        if True:
+                        if machine['last_running_status'] == 1:
                             runhour_calc.update_machine_status(machine['id'], 0, last_heartbeat)
                             save_machine_status(machine['id'], 0, last_heartbeat)
 
@@ -430,8 +433,7 @@ def cleanup():
     if machines:
         current_time = datetime.now()
         for machine in machines:
-            # if machine['last_running_status'] == 1:
-            if True:
+            if machine['last_running_status'] == 1:
                 runhour_calc.update_machine_status(machine['id'], 0, current_time.timestamp())
                 save_machine_status(machine['id'], 0, current_time)
 
