@@ -35,46 +35,24 @@ PROCESS_NAME = "machine_monitor"
 LED_PIN = 23
 LED_BLINK_INTERVAL = 0.5
 
-RUNHOUR_UPDATE_INTERVAL = int(os.getenv('RUNHOUR_UPDATE_INTERVAL', 10))
+RUNHOUR_UPDATE_INTERVAL = int(os.getenv('RUNHOUR_UPDATE_INTERVAL', 60))
 
 
 class RunHourCalculator:
     def __init__(self):
         self.machine_states = {}
         self.last_runhour_update = time.time()
-        self.initialize_machine_states()
 
-    def initialize_machine_states(self):
-        connection = self.get_db_connection()
-        if not connection:
-            print("Failed to connect to database during initialization.")
-            return
+    def initialize_machine_states(self, machines):
+        for machine in machines:
+            last_change_timestamp = machine['last_status_change'].timestamp() if machine['last_status_change'] else time.time()
+            self.machine_states[machine['id']] = {
+                'last_status': bool(machine['last_running_status']),
+                'last_update': last_change_timestamp,
+                'current_run_hour': float(machine['run_hour']) if machine['run_hour'] is not None else 0.0
+            }
 
-        cursor = connection.cursor(dictionary=True)
-
-        try:
-            query = """
-            SELECT * FROM machine_defs
-            """
-            cursor.execute(query)
-            db_machines = cursor.fetchall()
-
-            for machine in db_machines:
-                last_change_timestamp = machine['last_status_change'].timestamp() if machine['last_status_change'] else time.time()
-                self.machine_states[machine['id']] = {
-                    'last_status': bool(machine['last_running_status']),
-                    'last_update': last_change_timestamp,
-                    'current_run_hour': float(machine['run_hour']) if machine['run_hour'] is not None else 0.0
-                }
-            print(f"Initialized {len(self.machine_states)} machine states from database.")
-
-        except mysql.connector.Error as err:
-            print(f"Error initializing machine states from DB: {err}")
-        finally:
-            if cursor:
-                cursor.close()
-            if connection:
-                connection.close()
+        print(f"Initialized {len(self.machine_states)} machine states from database.")
 
     def get_db_connection(self):
         try:
@@ -128,10 +106,6 @@ class RunHourCalculator:
                     time_diff = current_time - state['last_update']
                     state['current_run_hour'] += time_diff
                     state['last_update'] = current_time
-
-                    print(
-                        f"bajingan pukimak anjing babi current_time {current_time} last update {state['last_update']} time diff {time_diff}. "
-                    )
 
                     self._update_database_runhour(
                         machine_id, state['current_run_hour'], state['last_status'], current_time, include_status_change=False
@@ -363,32 +337,55 @@ def check_previous_crash():
     cursor = connection.cursor(dictionary=True)
 
     try:
-        print(f"🚨 DETECTED PREVIOUS CRASH!")
+        query = "SELECT last_heartbeat FROM heartbeats WHERE process_name = %s AND is_running = TRUE"
+        cursor.execute(query, (PROCESS_NAME,))
+        result = cursor.fetchone()
 
-        machines = get_machine_defs()
-        if machines:
-            for machine in machines:
-                if machine['last_running_status'] == 1:
-                    last_runhour_update_db = machine['last_runhour_update']
+        if result:
+            last_heartbeat = result['last_heartbeat']
+            if last_heartbeat.tzinfo is None:
+                last_heartbeat = last_heartbeat.replace(tzinfo=timezone.utc)
+            time_diff = datetime.now(timezone.utc) - last_heartbeat
 
-                    if last_runhour_update_db is not None:
-                        update_query = """
-                        UPDATE machine_defs
-                        SET last_running_status = 0, last_status_change = %s, updated_at = %s
-                        WHERE id = %s
-                        """
-                        update_cursor = connection.cursor()
-                        try:
-                            update_cursor.execute(update_query, (last_runhour_update_db, last_runhour_update_db, machine['id']))
-                            connection.commit()
-                            print(f"Machine {machine['id']} last status updated.")
-                        except mysql.connector.Error as err:
-                            print(f"Error updating run hour for machine {machine['id']} during crash recovery: {err}")
-                            connection.rollback()
-                        finally:
-                            update_cursor.close()
+            print(f"🚨 DETECTED PREVIOUS CRASH!")
+            print(f"   Terakhir heartbeat: {last_heartbeat}")
+            print(f"   Waktu sekarang: {datetime.now(timezone.utc)}")
+            print(f"   Selisih: {time_diff.total_seconds()} detik")
+            print("   Memulihkan run hour dan mencatat status mesin...")
 
-                    save_machine_status(machine['id'], 0, last_runhour_update_db)
+            machines = get_machine_defs()
+            if machines:
+                for machine in machines:
+                    if machine['last_running_status'] == 1:
+                        run_hour_db = machine['run_hour'] if machine['run_hour'] is not None else 0.0
+                        last_runhour_update_db = machine['last_runhour_update']
+
+                        if last_runhour_update_db is not None:
+                            if last_runhour_update_db.tzinfo is None:
+                                last_runhour_update_db = last_runhour_update_db.replace(tzinfo=timezone.utc)
+                            duration_since_start = last_heartbeat - last_runhour_update_db
+                            duration_seconds = duration_since_start.total_seconds()
+
+                            new_run_hour = run_hour_db + duration_seconds
+
+                            update_query = """
+                            UPDATE machine_defs
+                            SET run_hour = %s, last_running_status = 0, last_status_change = %s,
+                                last_runhour_update = %s, updated_at = %s
+                            WHERE id = %s
+                            """
+                            update_cursor = connection.cursor()
+                            try:
+                                update_cursor.execute(update_query, (new_run_hour, last_heartbeat, last_heartbeat, last_heartbeat, machine['id']))
+                                connection.commit()
+                                print(f"Machine {machine['id']} run hour updated from {run_hour_db} to {new_run_hour} after crash recovery.")
+                            except mysql.connector.Error as err:
+                                print(f"Error updating run hour for machine {machine['id']} during crash recovery: {err}")
+                                connection.rollback()
+                            finally:
+                                update_cursor.close()
+
+                        save_machine_status(machine['id'], 0, last_heartbeat)
 
             return True
         return False
@@ -407,6 +404,8 @@ def initialize_machine_status():
         return
 
     print("Initializing machine status based on current hardware state...")
+
+    runhour_calc.initialize_machine_states(machines)
 
     for i, pin in enumerate(pins):
         if i < len(machines):
