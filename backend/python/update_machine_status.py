@@ -5,7 +5,7 @@ import busio
 import digitalio
 from adafruit_mcp230xx.mcp23017 import MCP23017
 import mysql.connector
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import sys
 import os
 import signal
@@ -150,7 +150,7 @@ class RunHourCalculator:
                 WHERE id = %s
                 """
 
-                update_datetime = datetime.fromtimestamp(update_time)
+                update_datetime = datetime.fromtimestamp(update_time, tz=timezone.utc)
                 cursor.execute(query, (run_hour, current_status, update_datetime, update_datetime, update_datetime, machine_id))
             else:
                 query = """
@@ -159,7 +159,7 @@ class RunHourCalculator:
                 WHERE id = %s
                 """
 
-                update_datetime = datetime.fromtimestamp(update_time)
+                update_datetime = datetime.fromtimestamp(update_time, tz=timezone.utc)
                 cursor.execute(query, (run_hour, current_status, update_datetime, update_datetime, machine_id))
 
             connection.commit()
@@ -227,7 +227,7 @@ def get_machine_defs():
 
 def save_machine_status(machine_def_id, running_status, recorded_at=None):
     if recorded_at is None:
-        recorded_at = datetime.now()
+        recorded_at = datetime.now(timezone.utc)
 
     connection = get_db_connection()
     if not connection:
@@ -264,7 +264,7 @@ def update_heartbeat():
         cursor.execute(check_query, (PROCESS_NAME,))
         result = cursor.fetchone()
 
-        current_time = datetime.now()
+        current_time = datetime.now(timezone.utc)
 
         if result:
             update_query = """
@@ -300,7 +300,7 @@ def mark_process_stopped():
 
     try:
         update_query = "UPDATE heartbeats SET is_running = FALSE, updated_at = %s WHERE process_name = %s"
-        cursor.execute(update_query, (datetime.now(), PROCESS_NAME))
+        cursor.execute(update_query, (datetime.now(timezone.utc), PROCESS_NAME))
         connection.commit()
         return True
     except mysql.connector.Error as err:
@@ -326,7 +326,7 @@ def check_rtc_anomaly():
 
         if result:
             last_heartbeat = result['last_heartbeat']
-            current_time = datetime.now()
+            current_time = datetime.now(timezone.utc)
 
             if last_heartbeat > current_time:
                 print(f"⚠️  DETECTED RTC ANOMALY!")
@@ -358,11 +358,11 @@ def check_previous_crash():
 
         if result:
             last_heartbeat = result['last_heartbeat']
-            time_diff = datetime.now() - last_heartbeat
+            time_diff = datetime.now(timezone.utc) - last_heartbeat
 
             print(f"🚨 DETECTED PREVIOUS CRASH!")
             print(f"   Terakhir heartbeat: {last_heartbeat}")
-            print(f"   Waktu sekarang: {datetime.now()}")
+            print(f"   Waktu sekarang: {datetime.now(timezone.utc)}")
             print(f"   Selisih: {time_diff.total_seconds()} detik")
             print("   Memulihkan run hour dan mencatat status mesin...")
 
@@ -432,7 +432,7 @@ def cleanup():
 
     machines = get_machine_defs()
     if machines:
-        current_time = datetime.now()
+        current_time = datetime.now(timezone.utc)
         for machine in machines:
             if machine['last_running_status'] == 1:
                 runhour_calc.update_machine_status(machine['id'], 0, current_time.timestamp())
@@ -579,7 +579,7 @@ try:
 
         if current_time - last_heartbeat_time >= HEARTBEAT_INTERVAL:
             if update_heartbeat():
-                print(f"Heartbeat updated at {datetime.now()}")
+                print(f"Heartbeat updated at {datetime.now(timezone.utc)}")
             last_heartbeat_time = current_time
 
         runhour_calc.periodic_runhour_update()
