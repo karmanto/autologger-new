@@ -129,6 +129,10 @@ class RunHourCalculator:
                     state['current_run_hour'] += time_diff
                     state['last_update'] = current_time
 
+                    print(
+                        f"bajingan pukimak anjing babi current_time {current_time} last update {state['last_update'] time diff {time_diff}}. "
+                    )
+
                     self._update_database_runhour(
                         machine_id, state['current_run_hour'], state['last_status'], current_time, include_status_change=False
                     )
