@@ -29,13 +29,13 @@ mcp_addresses = [int(addr.strip(), 16) for addr in mcp_addresses_str.split(',')]
 
 DEBOUNCE_DELAY = float(os.getenv('DEBOUNCE_DELAY', 0.5))
 
-HEARTBEAT_INTERVAL = int(os.getenv('HEARTBEAT_INTERVAL', 30))
+HEARTBEAT_INTERVAL = int(os.getenv('HEARTBEAT_INTERVAL', 10))
 PROCESS_NAME = "machine_monitor"
 
 LED_PIN = 23
 LED_BLINK_INTERVAL = 0.5
 
-RUNHOUR_UPDATE_INTERVAL = int(os.getenv('RUNHOUR_UPDATE_INTERVAL', 60))
+RUNHOUR_UPDATE_INTERVAL = int(os.getenv('RUNHOUR_UPDATE_INTERVAL', 10))
 
 
 class RunHourCalculator:
@@ -360,21 +360,20 @@ def check_previous_crash():
             last_heartbeat = result['last_heartbeat']
             time_diff = datetime.now() - last_heartbeat
 
-            if time_diff.total_seconds() > HEARTBEAT_INTERVAL * 2:
-                print(f"🚨 DETECTED PREVIOUS CRASH!")
-                print(f"   Terakhir heartbeat: {last_heartbeat}")
-                print(f"   Waktu sekarang: {datetime.now()}")
-                print(f"   Selisih: {time_diff.total_seconds()} detik")
-                print("   Memulihkan run hour dan mencatat status mesin...")
+            print(f"🚨 DETECTED PREVIOUS CRASH!")
+            print(f"   Terakhir heartbeat: {last_heartbeat}")
+            print(f"   Waktu sekarang: {datetime.now()}")
+            print(f"   Selisih: {time_diff.total_seconds()} detik")
+            print("   Memulihkan run hour dan mencatat status mesin...")
 
-                machines = get_machine_defs()
-                if machines:
-                    for machine in machines:
-                        if machine['last_running_status'] == 1:
-                            runhour_calc.update_machine_status(machine['id'], 0, last_heartbeat.timestamp())
-                            save_machine_status(machine['id'], 0, last_heartbeat)
+            machines = get_machine_defs()
+            if machines:
+                for machine in machines:
+                    if machine['last_running_status'] == 1:
+                        runhour_calc.update_machine_status(machine['id'], 0, last_heartbeat.timestamp())
+                        save_machine_status(machine['id'], 0, last_heartbeat)
 
-                return True
+            return True
         return False
     except mysql.connector.Error as err:
         print(f"Error checking previous crash: {err}")
@@ -398,9 +397,10 @@ def initialize_machine_status():
             if buttons[i] is not None:
                 initial_state = 1 if buttons[i].is_pressed else 0
 
-                runhour_calc.update_machine_status(machine['id'], initial_state)
-                save_machine_status(machine['id'], initial_state)
-                print(f"GPIO Machine {machine['name']} (Pin {pin}) initialized to {initial_state}")
+                if initial_state == 1:
+                    runhour_calc.update_machine_status(machine['id'], initial_state)
+                    save_machine_status(machine['id'], initial_state)
+                    print(f"GPIO Machine {machine['name']} (Pin {pin}) initialized to {initial_state}")
             else:
                 print(f"GPIO Machine {machine['name']} (Pin {pin}) skipped - button not initialized")
 
@@ -416,9 +416,10 @@ def initialize_machine_status():
                 pin_info['last_state'] = current_state
                 pin_info['last_fired_state'] = current_state
 
-                runhour_calc.update_machine_status(machine['id'], running_status)
-                save_machine_status(machine['id'], running_status)
-                print(f"MCP Machine {machine['name']} (Pin {mcp_index}) initialized to {running_status}")
+                if running_status == 1:
+                    runhour_calc.update_machine_status(machine['id'], running_status)
+                    save_machine_status(machine['id'], running_status)
+                    print(f"MCP Machine {machine['name']} (Pin {mcp_index}) initialized to {running_status}")
             except OSError:
                 print(f"Error reading MCP pin for machine {machine['name']}")
                 save_machine_status(machine['id'], 2)
