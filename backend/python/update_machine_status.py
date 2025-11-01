@@ -371,7 +371,7 @@ def check_previous_crash():
                 if machines:
                     for machine in machines:
                         if machine['last_running_status'] == 1:
-                            runhour_calc.update_machine_status(machine['id'], 0, last_heartbeat)
+                            runhour_calc.update_machine_status(machine['id'], 0, last_heartbeat.timestamp())
                             save_machine_status(machine['id'], 0, last_heartbeat)
 
                 return True
