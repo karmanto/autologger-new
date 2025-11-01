@@ -44,7 +44,7 @@ class RunHourCalculator:
         self.last_runhour_update = time.time()
         self.initialize_machine_states()
 
-    def initialize_machine_states(self, machines):
+    def initialize_machine_states(self):
         connection = self.get_db_connection()
         if not connection:
             print("Failed to connect to database during initialization.")
